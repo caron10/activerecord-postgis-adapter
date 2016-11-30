@@ -32,7 +32,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # -----------------------------------------------------------------------------
 ;
-
+require 'active_record/connection_adapters/postgis_adapter/shared/arel_tosql.rb'
 
 module ActiveRecord  # :nodoc:
 
@@ -43,12 +43,19 @@ module ActiveRecord  # :nodoc:
 
       class MainAdapter < PostgreSQLAdapter  # :nodoc:
 
+        class BindSubstitution < Arel::Visitors::PostGIS
+          include Arel::Visitors::BindVisitor
+        end
 
-        def initialize(*args_)
+        def initialize(connection, logger, connection_parameters, config)
           super
           # Rails 3.2 way of defining the visitor: do so in the constructor
           if defined?(@visitor) && @visitor
-            @visitor = ::Arel::Visitors::PostGIS.new(self)
+            if config.fetch(:prepared_statements) { true }
+              @visitor = ::Arel::Visitors::PostGIS.new(self)
+            else
+              @visitor = BindSubstitution.new(self)
+            end
           end
         end
 
